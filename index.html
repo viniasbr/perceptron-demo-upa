@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Treine Sua Própria IA</title>
+  <style>
+    :root{
+      --bg:#f7f7f8; --fg:#0a0a0a; --muted:#6b7280; --card:#ffffff; --card-border:#e5e7eb;
+      --card-dark:#0b0b0f; --card-border-dark:#22242a; --blue:#3b82f6; --blue-ink:#1e40af;
+      --red:#ef4444; --green:#10b981; --emerald-ink:#065f46; --gray:#e5e7eb; --gray-dark:#1f2937;
+    }
+    @media (prefers-color-scheme: dark){
+      :root{ --bg:#0a0a0b; --fg:#f5f5f5; --muted:#9ca3af; --card:#0f1115; --card-border:#22242a; }
+    }
+    *{ box-sizing:border-box; }
+    html,body{ margin:0; padding:0; background:var(--bg); color:var(--fg); font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Noto Sans", sans-serif; }
+    .container{ max-width:1100px; margin:0 auto; padding:24px; }
+    header{ display:flex; gap:16px; align-items:flex-end; justify-content:space-between; margin-bottom:24px; }
+    h1{ font-size:24px; margin:0 0 6px 0; font-weight:600; letter-spacing:-0.02em; }
+    .muted{ color:var(--muted); font-size:13px; }
+    .btns{ display:flex; gap:10px; }
+    .btn{ font-size:13px; padding:8px 12px; border-radius:12px; border:1px solid var(--card-border); background:#e5e7eb; cursor:pointer; }
+    @media (prefers-color-scheme: dark){ .btn{ background:#111827; color:#e5e7eb; border-color:#33373f; } }
+    .btn.primary{ background:#2563eb; color:#fff; border:0; }
+
+    .layout{ display:grid; grid-template-columns: 1fr; gap:20px; }
+    @media (min-width: 1200px){ .layout{ grid-template-columns: 2fr 1fr; grid-auto-rows: auto; } }
+
+    .card{ background:var(--card); border:1px solid var(--card-border); border-radius:16px; padding:16px; }
+    .card h2, .card h3{ font-size:16px; margin:0 0 12px 0; font-weight:600; }
+
+    /* Sliders grid (4x4) + bias à direita */
+    .sliders-outer{ display:grid; grid-template-columns: 4fr 1fr; gap:12px; }
+    .sliders-grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:12px; align-items:stretch; }
+    .slider-card{ display:flex; flex-direction:column; gap:8px; min-width:0; }
+    .val-pill{ font-size:12px; font-weight:600; padding:4px 8px; border-radius:8px; background:#e5e7eb; color:#111827; text-align:center; }
+    @media (prefers-color-scheme: dark){ .val-pill{ background:#101317; color:#e5e7eb; } }
+    .label{ font-size:12px; color:var(--muted); }
+
+    /* Range styling cross-browser */
+    input[type=range]{ -webkit-appearance:none; width:100%; height:32px; background:transparent; margin:0; --fill-pct:0%; --fill-color: var(--blue); --track-color: var(--gray); --thumb-color: var(--blue); }
+    input[type=range]::-webkit-slider-runnable-track{ height:4px; border-radius:999px; background: linear-gradient(to right, var(--fill-color) 0%, var(--fill-color) var(--fill-pct), var(--track-color) var(--fill-pct), var(--track-color) 100%); }
+    input[type=range]::-moz-range-track{ height:4px; border-radius:999px; background: var(--track-color); }
+    input[type=range]::-moz-range-progress{ height:4px; border-radius:999px; background: var(--fill-color); }
+    input[type=range]::-webkit-slider-thumb{ -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#fff; border:2px solid var(--thumb-color); margin-top:-6px; box-shadow:0 1px 2px rgba(0,0,0,.15); }
+    input[type=range]::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:#fff; border:2px solid var(--thumb-color); box-shadow:0 1px 2px rgba(0,0,0,.15); }
+    @media (prefers-color-scheme: dark){
+      input[type=range]::-webkit-slider-thumb{ background:#f3f4f6; }
+      input[type=range]::-moz-range-thumb{ background:#f3f4f6; }
+    }
+    /* The colorful fill is simulated via element background gradient, set via JS. */
+
+    /* Switch grid */
+    .switch-grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:8px; }
+    .switch{ display:flex; align-items:center; justify-content:space-between; gap:6px; padding:6px; border:1px solid var(--card-border); border-radius:10px; }
+    .switch label{ display:inline-flex; align-items:center; cursor:pointer; }
+    .switch input{ position:absolute; opacity:0; pointer-events:none; }
+    .toggle{ position:relative; width:32px; height:16px; border-radius:999px; background:#9ca3af; transition:.2s; }
+    .dot{ position:absolute; left:2px; top:2px; width:12px; height:12px; border-radius:999px; background:#fff; transition: transform .2s; }
+    .switch input:checked + .toggle{ background:#2563eb; }
+    .switch input:checked + .toggle .dot{ transform: translateX(16px); }
+
+    /* Result box */
+    .result-box{ background:#f8fafc; border:1px solid var(--card-border); border-radius:16px; padding:16px; }
+    @media (prefers-color-scheme: dark){ .result-box{ background:#0a0c10; border-color:#22242a; } }
+    .big{ font-size:28px; font-weight:700; }
+    .truth{ font-size:18px; font-weight:700; }
+    .truth.true{ color:#059669; } .truth.false{ color:#dc2626; }
+
+    /* Active weights grid 4x4 + bias à direita */
+    .active-outer{ display:grid; grid-template-columns: 4fr 1fr; gap:12px; }
+    .active-grid{ display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:8px; align-items:stretch; }
+    .badge{ display:block; width:100%; text-align:center; padding:6px 8px; border-radius:10px; border:1px solid var(--card-border); font-variant-numeric: tabular-nums; }
+    .badge.on{ background:#dbeafe; color:#1e40af; border-color:#bfdbfe; }
+    .badge.off{ background:#e5e7eb; color:#6b7280; border-color:#d1d5db; }
+    @media (prefers-color-scheme: dark){
+      .badge.on{ background:#0b1b36; color:#93c5fd; border-color:#1e3a8a; }
+      .badge.off{ background:#111827; color:#9ca3af; border-color:#374151; }
+    }
+    .bias-badge{ background:#d1fae5; color:#065f46; border-color:#a7f3d0; }
+    @media (prefers-color-scheme: dark){ .bias-badge{ background:#052e27; color:#6ee7b7; border-color:#065f46; } }
+
+    canvas.preview{ display:block; background:#000; border:1px solid var(--card-border); border-radius:8px; }
+
+    .row{ display:grid; grid-template-columns: 2fr 1fr; gap:20px; }
+    @media (max-width: 1199px){ .row{ grid-template-columns: 1fr; } }
+
+    .mb-12{ margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Treine Sua Própria IA</h1>
+        <div class="muted">Ajuste os pesos para que a IA aprenda a tarefa.</div>
+      </div>
+      <div class="btns">
+        <button id="btn-on" class="btn">Ativar todos</button>
+        <button id="btn-off" class="btn">Desativar todos</button>
+        <button id="btn-reset" class="btn primary">Reiniciar</button>
+      </div>
+    </header>
+
+    <div class="row">
+      <div class="left">
+        <section class="card mb-12" id="card-sliders">
+          <h2>Pesos e viés</h2>
+          <div class="sliders-outer">
+            <div class="sliders-grid" id="sliders-grid"></div>
+            <div class="bias-col" id="bias-col"></div>
+          </div>
+        </section>
+        <section class="card" id="card-active">
+          <h3>Pesos Ativos</h3>
+          <div class="active-outer">
+            <div class="active-grid" id="active-grid"></div>
+            <div class="bias-col" id="active-bias"></div>
+          </div>
+        </section>
+      </div>
+
+      <section class="card" id="card-inputs">
+        <h2>Entradas</h2>
+        <div class="switch-grid" id="switch-grid"></div>
+
+        <div class="result-box mb-12">
+          <div class="muted">Soma (com interruptores aplicados)</div>
+          <div class="big" id="sum">0.000</div>
+          <div class="muted" style="margin-top:8px;">Sigmoide σ(x) = 1 / (1 + e<sup>−x</sup>)</div>
+          <div class="big" id="sigmoid">0.500000</div>
+
+          <div class="muted" style="margin-top:8px;">Resultado</div>
+          <div id="truth" class="truth true">Verdadeiro</div>
+
+          <div class="muted" style="margin-top:12px;">Visualização da Entrada (branco = ligado; preto = desligado)</div>
+          <canvas id="preview" class="preview" width="192" height="192"></canvas>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // ------- Helpers -------
+    function clamp(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
+    function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+    function computeSum(weights, active, nSwitched){
+      const bias = weights[weights.length - 1] || 0;
+      let s = bias;
+      for(let i=0;i<Math.min(nSwitched, weights.length-1);i++) if(active[i]) s += (weights[i]||0);
+      return s;
+    }
+
+    // ------- State -------
+    const SLIDER_MIN = -30, SLIDER_MAX = 30, N_SWITCHED = 16, N_TOTAL = 17;
+    const weights = Array.from({length:N_TOTAL}, () => 0);
+    const active = Array.from({length:N_SWITCHED}, () => false);
+
+    // ------- DOM refs -------
+    const slidersGrid = document.getElementById('sliders-grid');
+    const biasCol = document.getElementById('bias-col');
+    const switchGrid = document.getElementById('switch-grid');
+    const activeGrid = document.getElementById('active-grid');
+    const activeBias = document.getElementById('active-bias');
+    const sumEl = document.getElementById('sum');
+    const sigEl = document.getElementById('sigmoid');
+    const truthEl = document.getElementById('truth');
+    const canvas = document.getElementById('preview');
+    const ctx = canvas.getContext('2d');
+
+    // ------- Build UI -------
+    
+
+    function makeSliderCard(i, label){
+      const wrap = document.createElement('div');
+      wrap.className = 'slider-card';
+
+      const pill = document.createElement('div');
+      pill.className = 'val-pill'; pill.textContent = '0';
+
+      const range = document.createElement('input');
+      range.type = 'range'; range.min = SLIDER_MIN; range.max = SLIDER_MAX; range.step = 1; range.value = 0;
+      range.setAttribute('aria-label', 'peso');
+
+      const cap = document.createElement('div'); cap.className='label'; cap.textContent = label;
+
+      function syncStyles(){
+        const isBias = (i === N_TOTAL-1);
+        const on = isBias ? true : active[i];
+        const color = on ? 'var(--blue)' : 'var(--red)';
+        const pct = ((+range.value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+        range.style.setProperty('--fill-pct', pct + '%');
+        range.style.setProperty('--fill-color', color);
+        range.style.setProperty('--thumb-color', color);
+        pill.textContent = String(range.value);
+      }
+
+      range.addEventListener('input', () => {
+        weights[i] = clamp(Math.round(+range.value), SLIDER_MIN, SLIDER_MAX);
+        syncStyles();
+        updateAll();
+      });
+
+      // initial
+      syncStyles();
+
+      wrap.appendChild(pill); wrap.appendChild(range); wrap.appendChild(cap);
+      return { wrap, range, pill };
+    }
+
+    // custom thumb border color per state (blue/red). Works on WebKit; on Firefox we keep default border.
+    
+
+    // Build 16 sliders + bias
+    const sliderRefs = [];
+    for(let i=0;i<N_SWITCHED;i++){
+      const { wrap, range, pill } = makeSliderCard(i, `w${i+1}`);
+      slidersGrid.appendChild(wrap);
+      sliderRefs[i] = { range, pill };
+    }
+    {
+      const { wrap, range, pill } = makeSliderCard(N_TOTAL-1, 'viés');
+      biasCol.appendChild(wrap);
+      sliderRefs[N_TOTAL-1] = { range, pill };
+    }
+
+    // Build 16 switches
+    for(let i=0;i<N_SWITCHED;i++){
+      const cell = document.createElement('div'); cell.className='switch';
+      const label = document.createElement('span'); label.textContent = String(i+1); label.style.fontSize='12px'; label.style.fontWeight='600';
+      const check = document.createElement('input'); check.type='checkbox'; check.checked = false; check.id = 'sw_'+i;
+      const vis = document.createElement('span'); vis.className='toggle';
+      const dot = document.createElement('span'); dot.className='dot'; vis.appendChild(dot);
+
+      const wrapper = document.createElement('label'); wrapper.htmlFor = check.id; wrapper.appendChild(check); wrapper.appendChild(vis);
+
+      cell.appendChild(label); cell.appendChild(wrapper); switchGrid.appendChild(cell);
+
+      check.addEventListener('change', ()=>{ active[i] = check.checked; syncSliderColor(i); updateAll(); });
+    }
+
+    function syncSliderColor(i){
+      const ref = sliderRefs[i]; if(!ref) return;
+      const range = ref.range;
+      const color = active[i] ? 'var(--blue)' : 'var(--red)';
+      range.style.setProperty('--fill-color', color);
+      range.style.setProperty('--thumb-color', color);
+    }
+
+    // Buttons
+    document.getElementById('btn-on').onclick = ()=>{ for(let i=0;i<N_SWITCHED;i++){ active[i]=true; document.getElementById('sw_'+i).checked=true; syncSliderColor(i);} updateAll(); };
+    document.getElementById('btn-off').onclick = ()=>{ for(let i=0;i<N_SWITCHED;i++){ active[i]=false; document.getElementById('sw_'+i).checked=false; syncSliderColor(i);} updateAll(); };
+    document.getElementById('btn-reset').onclick = ()=>{
+      for(let i=0;i<N_TOTAL;i++){
+        weights[i]=0;
+        if(sliderRefs[i]){ sliderRefs[i].range.value=0; sliderRefs[i].pill.textContent='0'; }
+      }
+      for(let i=0;i<N_SWITCHED;i++){
+        active[i]=false; const sw=document.getElementById('sw_'+i); if(sw) sw.checked=false;
+      }
+      for(let i=0;i<N_SWITCHED;i++) syncSliderColor(i);
+      sliderRefs.forEach((ref, idx) => {
+        if(!ref) return; const r = ref.range;
+        const color = (idx === N_TOTAL-1) ? 'var(--blue)' : (active[idx] ? 'var(--blue)' : 'var(--red)');
+        const pct = ((+r.value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+        r.style.setProperty('--fill-color', color);
+        r.style.setProperty('--thumb-color', color);
+        r.style.setProperty('--fill-pct', pct + '%');
+      });
+      updateAll();
+    };
+
+    // Active weights render
+    function renderActiveWeights(){
+      activeGrid.innerHTML='';
+      for(let i=0;i<N_SWITCHED;i++){
+        const span = document.createElement('span');
+        span.className = 'badge ' + (active[i] ? 'on' : 'off');
+        span.textContent = `w${i+1}: ${weights[i]}`;
+        activeGrid.appendChild(span);
+      }
+      activeBias.innerHTML='';
+      const bb = document.createElement('span'); bb.className='badge bias-badge';
+      bb.textContent = `viés: ${weights[N_TOTAL-1]}`; activeBias.appendChild(bb);
+    }
+
+    // Preview canvas 4x4 (white = on; black = off)
+    function renderPreview(){
+      const n=4, scale = canvas.width / n; // width=height fixed by attribute
+      ctx.fillStyle = '#000000'; ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<16;i++){
+        const on = !!active[i]; const x = (i%4)*scale; const y = Math.floor(i/4)*scale;
+        ctx.fillStyle = on ? '#ffffff' : '#000000';
+        ctx.fillRect(x,y,scale,scale);
+      }
+      ctx.strokeStyle = '#444';
+      for(let i=0;i<=4;i++){ ctx.beginPath(); ctx.moveTo(i*scale,0); ctx.lineTo(i*scale,4*scale); ctx.stroke();
+                             ctx.beginPath(); ctx.moveTo(0,i*scale); ctx.lineTo(4*scale,i*scale); ctx.stroke(); }
+    }
+
+    // Update outputs
+    function updateAll(){
+      const s = computeSum(weights, active, N_SWITCHED);
+      const y = sigmoid(s);
+      sumEl.textContent = s.toFixed(3);
+      sigEl.textContent = y.toFixed(6);
+      truthEl.textContent = (y>=0.5) ? 'Verdadeiro' : 'Falso';
+      truthEl.className = 'truth ' + ((y>=0.5)?'true':'false');
+      renderActiveWeights();
+      renderPreview();
+    }
+
+    // First paint
+    updateAll();
+
+    // ------- Lightweight tests (aparecem no console) -------
+    (function(){
+      const approx = (a,b,eps=1e-6)=>Math.abs(a-b)<eps;
+      console.assert(sigmoid(0)===0.5, 'sigmoid(0) should be 0.5');
+      console.assert(approx(sigmoid(10),0.9999546,1e-5), 'sigmoid(10) ≈ 0.9999546');
+      console.assert(approx(sigmoid(-10),0.0000454,1e-5), 'sigmoid(-10) ≈ 0.0000454');
+      console.assert(clamp(40,-30,30)===30, 'clamp upper bound');
+      console.assert(clamp(-40,-30,30)===-30, 'clamp lower bound');
+      const w = Array(17).fill(0); w[0]=1; w[1]=-2; w[16]=2; // viés=2
+      let a = Array(16).fill(false);
+      console.assert(computeSum(w,a)===2, 'sum with all OFF + bias=2 should be 2');
+      a[0]=true; console.assert(computeSum(w,a)===3, 'sum with w1 ON (+1) + bias=2 should be 3');
+      a[1]=true; console.assert(computeSum(w,a)===1, 'sum with w1=1 and w2=-2 + bias=2 should be 1');
+      const w2 = Array(17).fill(0); w2[15]=5; w2[16]=-3; let a2=Array(16).fill(false); a2[15]=true; // w16
+      console.assert(computeSum(w2,a2)===2, 'sum with only w16=5 ON + bias=-3 should be 2');
+      console.assert(computeSum(Array(17).fill(0), Array(16).fill(false))===0, 'sum with all OFF and all weights 0 should be 0');
+    })();
+  </script>
+</body>
+</html>
