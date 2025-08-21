@@ -87,9 +87,45 @@
     @media (max-width: 1199px){ .row{ grid-template-columns: 1fr; } }
 
     .mb-12{ margin-bottom:12px; }
+  .slot-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center}
+    .btn.btn-sm{font-size:12px;padding:6px 10px;border-radius:10px}
+  .slot-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px}
+    .slot-col{display:grid;grid-template-rows:auto auto;gap:8px}
+    .btn.danger{background:#ef4444;color:#fff;border:0}
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+  body[data-theme="dark"]{ --bg:#0a0a0b; --fg:#f5f5f5; --muted:#9ca3af; --card:#0f1115; --card-border:#22242a; }
+    body[data-theme="dark"] .btn{ background:#111827; color:#e5e7eb; border-color:#33373f; }
+    body[data-theme="dark"] .val-pill{ background:#101317; color:#e5e7eb; }
+    body[data-theme="dark"] .result-box{ background:#0a0c10; border-color:#22242a; }
+    body[data-theme="dark"] .badge.on{ background:#0b1b36; color:#93c5fd; border-color:#1e3a8a; }
+    body[data-theme="dark"] .badge.off{ background:#111827; color:#9ca3af; border-color:#374151; }
+    body[data-theme="dark"] input[type=range]::-webkit-slider-thumb{ background:#f3f4f6; }
+    body[data-theme="dark"] input[type=range]::-moz-range-thumb{ background:#f3f4f6; }
+    /* Explicit light overrides to ignore OS dark preference when toggled */
+    body[data-theme="light"]{ --bg:#f7f7f8; --fg:#0a0a0a; --muted:#6b7280; --card:#ffffff; --card-border:#e5e7eb; }
+    body[data-theme="light"] .btn{ background:#e5e7eb; color:inherit; border-color:var(--card-border); }
+    body[data-theme="light"] .val-pill{ background:#e5e7eb; color:#111827; }
+    body[data-theme="light"] .result-box{ background:#f8fafc; border-color:var(--card-border); }
+    body[data-theme="light"] .badge.on{ background:#dbeafe; color:#1e40af; border-color:#bfdbfe; }
+    body[data-theme="light"] .badge.off{ background:#e5e7eb; color:#6b7280; border-color:#d1d5db; }
+    body[data-theme="light"] input[type=range]::-webkit-slider-thumb{ background:#ffffff; }
+    body[data-theme="light"] input[type=range]::-moz-range-thumb{ background:#ffffff; }
+  .theme-toggle{ position:fixed; top:16px; right:16px; z-index:1000; width:40px; height:40px; border-radius:999px; border:1px solid var(--card-border); background:var(--card); color:inherit; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.08); }
+    .theme-toggle:hover{ box-shadow:0 4px 14px rgba(0,0,0,.12); }
+    body[data-theme="dark"] .theme-toggle{ border-color:#33373f; }
+  /* Garantir que as variantes de estado dos botões prevaleçam sobre o tema */
+    body[data-theme="dark"] .btn.primary,
+    body[data-theme="light"] .btn.primary,
+    .btn.primary{ background:#2563eb !important; color:#fff !important; border:0 !important; }
+    body[data-theme="dark"] .btn.danger,
+    body[data-theme="light"] .btn.danger,
+    .btn.danger{ background:#ef4444 !important; color:#fff !important; border:0 !important; }
+  html[data-theme="dark"]{ --bg:#0a0a0b; --fg:#f5f5f5; --muted:#9ca3af; --card:#0f1115; --card-border:#22242a; }
+    html[data-theme="light"]{ --bg:#f7f7f8; --fg:#0a0a0a; --muted:#6b7280; --card:#ffffff; --card-border:#e5e7eb; }
   </style>
 </head>
 <body>
+  <button id="btn-theme-float" class="theme-toggle" aria-label="Alternar tema">🌙</button>
   <div class="container">
     <header>
       <div>
@@ -201,6 +237,18 @@
         syncStyles();
         updateAll();
       });
+      range.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const step = e.shiftKey ? 5 : 1;
+        const dir = e.deltaY < 0 ? 1 : -1; // roda pra cima = aumenta
+        const newVal = clamp(+range.value + dir * step, SLIDER_MIN, SLIDER_MAX);
+        if (newVal !== +range.value) {
+          range.value = newVal;
+          weights[i] = newVal;
+          syncStyles();
+          updateAll();
+        }
+      });
 
       // initial
       syncStyles();
@@ -225,6 +273,67 @@
       sliderRefs[N_TOTAL-1] = { range, pill };
     }
 
+    // Slots (3)
+    const slots = [null, null, null];
+    function snapshotWeights(){ return weights.slice(); }
+    function loadWeights(arr){
+      if(!arr || arr.length !== N_TOTAL) return false;
+      for(let i=0;i<N_TOTAL;i++){
+        const v = clamp(Math.round(+arr[i]), SLIDER_MIN, SLIDER_MAX);
+        weights[i] = v;
+        if(sliderRefs[i]) sliderRefs[i].range.value = String(v);
+      }
+      refreshSliderAll();
+      updateAll();
+      return true;
+    }
+    (function(){
+      const card = document.getElementById('card-active');
+      const panel = document.createElement('div'); panel.className='slot-grid';
+      const colEls = [];
+      for(let k=0;k<3;k++){
+        const col = document.createElement('div'); col.className='slot-col';
+        const top = document.createElement('button'); top.className='btn btn-sm'; top.textContent='Guardar ' + (k+1);
+        const bottom = document.createElement('button'); bottom.className='btn btn-sm'; bottom.textContent='Apagar ' + (k+1); bottom.disabled = true;
+        top.addEventListener('click', ()=>{
+          if(!slots[k]){ // guardar
+            slots[k] = snapshotWeights();
+          } else { // carregar
+            loadWeights(slots[k]);
+          }
+          updateSlotUI();
+        });
+        bottom.addEventListener('click', ()=>{
+          if(!slots[k]) return;
+          slots[k] = null; // apagar
+          updateSlotUI();
+        });
+        col.appendChild(top); col.appendChild(bottom);
+        panel.appendChild(col);
+        colEls[k] = { top, bottom };
+      }
+      card.parentNode.insertBefore(panel, card.nextSibling);
+
+      function updateSlotUI(){
+        for(let k=0;k<3;k++){
+          const has = !!slots[k];
+          const { top, bottom } = colEls[k];
+          if(has){
+            top.textContent = 'Carregar ' + (k+1);
+            top.className = 'btn btn-sm primary';
+            bottom.disabled = false;
+            bottom.className = 'btn btn-sm danger';
+          } else {
+            top.textContent = 'Guardar ' + (k+1);
+            top.className = 'btn btn-sm';
+            bottom.disabled = true;
+            bottom.className = 'btn btn-sm';
+          }
+        }
+      }
+      updateSlotUI();
+    })();
+
     // Build 16 switches
     for(let i=0;i<N_SWITCHED;i++){
       const cell = document.createElement('div'); cell.className='switch';
@@ -248,6 +357,20 @@
       range.style.setProperty('--thumb-color', color);
     }
 
+    function refreshSliderStyle(i){
+      const ref = sliderRefs[i]; if(!ref) return;
+      const range = ref.range; const pill = ref.pill;
+      const isBias = (i === N_TOTAL-1);
+      const on = isBias ? true : active[i];
+      const color = on ? 'var(--blue)' : 'var(--red)';
+      const pct = ((+range.value - SLIDER_MIN) / (SLIDER_MAX - SLIDER_MIN)) * 100;
+      range.style.setProperty('--fill-pct', pct + '%');
+      range.style.setProperty('--fill-color', color);
+      range.style.setProperty('--thumb-color', color);
+      pill.textContent = String(range.value);
+    }
+    function refreshSliderAll(){ for(let i=0;i<N_TOTAL;i++) refreshSliderStyle(i); }
+
     // Buttons
     document.getElementById('btn-on').onclick = ()=>{ for(let i=0;i<N_SWITCHED;i++){ active[i]=true; document.getElementById('sw_'+i).checked=true; syncSliderColor(i);} updateAll(); };
     document.getElementById('btn-off').onclick = ()=>{ for(let i=0;i<N_SWITCHED;i++){ active[i]=false; document.getElementById('sw_'+i).checked=false; syncSliderColor(i);} updateAll(); };
@@ -270,6 +393,25 @@
       });
       updateAll();
     };
+
+    // Theme toggle (dark/light) - floating button
+    const themeBtn = document.getElementById('btn-theme-float');
+    function setTheme(mode){
+      document.body.setAttribute('data-theme', mode);
+      document.documentElement.setAttribute('data-theme', mode);
+      if(themeBtn){
+        themeBtn.textContent = (mode === 'dark' ? '☀️' : '🌙');
+        themeBtn.setAttribute('aria-label', mode === 'dark' ? 'Modo claro' : 'Modo escuro');
+      }
+    }
+    if(themeBtn){
+      themeBtn.onclick = () => {
+        const cur = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+        setTheme(cur === 'dark' ? 'light' : 'dark');
+      };
+    }
+    // default: start in light
+    setTheme('dark');
 
     // Active weights render
     function renderActiveWeights(){
@@ -330,6 +472,23 @@
       const w2 = Array(17).fill(0); w2[15]=5; w2[16]=-3; let a2=Array(16).fill(false); a2[15]=true; // w16
       console.assert(computeSum(w2,a2)===2, 'sum with only w16=5 ON + bias=-3 should be 2');
       console.assert(computeSum(Array(17).fill(0), Array(16).fill(false))===0, 'sum with all OFF and all weights 0 should be 0');
+      // Slot save/load basic test (non-blocking)
+      try{
+        const snap = snapshotWeights();
+        const test = Array(17).fill(0); test[0]=7; test[16]=-4;
+        loadWeights(test);
+        console.assert(weights[0]===7 && weights[16]===-4, 'loadWeights should apply values');
+        loadWeights(snap);
+      }catch(_){}
+      // Theme toggle basic test
+      try{
+        const prev = document.documentElement.getAttribute('data-theme');
+        setTheme('light');
+        console.assert(document.documentElement.getAttribute('data-theme')==='light','theme should be light');
+        setTheme('dark');
+        console.assert(document.documentElement.getAttribute('data-theme')==='dark','theme should be dark');
+        setTheme(prev || 'dark');
+      }catch(_){}
     })();
   </script>
 </body>
